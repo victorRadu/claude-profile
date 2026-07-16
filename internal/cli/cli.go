@@ -3,6 +3,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -66,54 +67,78 @@ func Run(args []string, version string) int {
 }
 
 // Run dispatches to a subcommand and returns an exit code.
+//
+// `run` is the implicit default action: with no arguments, or with a first
+// argument that is not a known subcommand, the whole invocation is handed to
+// run. That makes `claude-profile <profile> [args]` (and the `claudep` short
+// alias) launch straight into a profile, while `create`, `list`, etc. still
+// dispatch as named subcommands.
 func (a *App) Run(args []string) int {
-	cmd := "help"
-	if len(args) > 0 {
-		cmd = args[0]
-		args = args[1:]
+	// No subcommand: resolve the directory binding, else the picker —
+	// never a silent default, and always announced by run's banner.
+	if len(args) == 0 {
+		a.startupHook("")
+		return a.exit(a.run(nil))
 	}
+	cmd := args[0]
+	rest := args[1:]
+	a.startupHook(cmd)
 	// `claude-profile <cmd> --help` shows the command's help page.
-	if _, known := helpTopics[cmd]; known && len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
-		if err := a.printHelp(cmd); err != nil {
-			fmt.Fprintln(a.Stderr, "Error:", err)
-			return 1
-		}
-		return 0
+	if _, known := helpTopics[cmd]; known && len(rest) > 0 && (rest[0] == "-h" || rest[0] == "--help") {
+		return a.exit(a.printHelp(cmd))
 	}
 	var err error
 	switch cmd {
 	case "create":
-		err = a.create(args)
+		err = a.create(rest)
 	case "list", "ls":
 		err = a.list()
 	case "run":
-		err = a.run(args)
+		err = a.run(rest)
 	case "link":
-		err = a.link(args)
+		err = a.link(rest)
 	case "unlink":
 		err = a.unlink()
 	case "status":
 		err = a.status()
+	case "statusline":
+		err = a.statuslineCmd(rest)
+	case "update":
+		err = a.updateCmd(rest)
+	case "migrate":
+		err = a.migrateCmd(rest)
 	case "alias":
-		err = a.aliasCmd(args)
+		err = a.aliasCmd(rest)
 	case "wrap":
-		err = a.wrap(args)
+		err = a.wrap(rest)
 	case "wrap-exec": // hidden: invoked by the wrapper shim, not by users
-		err = a.wrapExec(args)
+		err = a.wrapExec(rest)
 	case "remove", "rm":
-		err = a.remove(args)
+		err = a.remove(rest)
 	case "version", "-v", "--version":
 		fmt.Fprintln(a.Stdout, "claude-profile", a.Version)
 	case "help", "-h", "--help":
-		if len(args) > 0 {
-			err = a.printHelp(args[0])
+		if len(rest) > 0 {
+			err = a.printHelp(rest[0])
 		} else {
 			a.printUsage(a.Stdout)
 		}
 	default:
-		fmt.Fprintf(a.Stderr, "Error: unknown command %q\n\n", cmd)
-		a.printUsage(a.Stderr)
-		return 2
+		// Not a known subcommand: treat the entire invocation as run args.
+		// splitRunArgs still refuses to guess a bad profile name.
+		err = a.run(args)
+	}
+	return a.exit(err)
+}
+
+// errSilentExit signals a nonzero exit whose message was already printed
+// (e.g. `update --check` finding an update).
+var errSilentExit = errors.New("silent exit")
+
+// exit prints err (if any) to stderr and returns the process exit code.
+func (a *App) exit(err error) int {
+	if errors.Is(err, errSilentExit) {
+		return 1
 	}
 	if err != nil {
 		fmt.Fprintln(a.Stderr, "Error:", err)

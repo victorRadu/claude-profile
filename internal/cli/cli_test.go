@@ -199,13 +199,55 @@ func TestRunPickerCancelled(t *testing.T) {
 	}
 }
 
-func TestUnknownCommand(t *testing.T) {
-	app, _, errBuf, _ := newTestApp(t, "")
-	if code := app.Run([]string{"frobnicate"}); code != 2 {
-		t.Fatalf("unknown command exit = %d, want 2", code)
+// A first token that is not a known subcommand is handed to run, which
+// treats it as a profile name — so a typo surfaces as a missing profile,
+// not an "unknown command".
+func TestUnknownCommandFallsThroughToRun(t *testing.T) {
+	app, _, errBuf, l := newTestApp(t, "")
+	if code := app.Run([]string{"frobnicate"}); code != 1 {
+		t.Fatalf("unknown token exit = %d, want 1", code)
 	}
-	if !strings.Contains(errBuf.String(), "unknown command") {
+	if l.called {
+		t.Fatal("Launch must not be called for a non-existent profile")
+	}
+	if !strings.Contains(errBuf.String(), "does not exist") {
 		t.Fatalf("unexpected output: %s", errBuf)
+	}
+}
+
+// `claude-profile <profile> [args]` launches that profile without the
+// explicit `run` verb, and everything after the name reaches claude.
+func TestProfileNameFallsThroughToRun(t *testing.T) {
+	app, _, _, l := newTestApp(t, "")
+	app.Run([]string{"create", "work", "--no-alias"})
+
+	if code := app.Run([]string{"work", "--continue"}); code != 0 {
+		t.Fatal("passthrough run failed")
+	}
+	if l.configDir != app.Store.Dir("work") {
+		t.Fatalf("launched %q, want work", l.configDir)
+	}
+	if len(l.args) != 1 || l.args[0] != "--continue" {
+		t.Fatalf("Launch args = %v, want [--continue]", l.args)
+	}
+}
+
+// A leading flag means "no profile name": resolve the binding, then pass
+// the flags through to claude.
+func TestLeadingFlagFallsThroughToRun(t *testing.T) {
+	app, _, _, l := newTestApp(t, "")
+	app.WorkDir = t.TempDir()
+	app.Run([]string{"create", "solo", "--no-alias"})
+	app.Run([]string{"link", "solo"}) // bind the dir so resolution needs no picker
+
+	if code := app.Run([]string{"--resume"}); code != 0 {
+		t.Fatalf("leading-flag passthrough failed")
+	}
+	if !l.called {
+		t.Fatal("Launch was not called")
+	}
+	if len(l.args) != 1 || l.args[0] != "--resume" {
+		t.Fatalf("Launch args = %v, want [--resume]", l.args)
 	}
 }
 
@@ -216,7 +258,24 @@ func TestVersionAndHelp(t *testing.T) {
 		t.Fatalf("version output: %s", out)
 	}
 	out.Reset()
-	if code := app.Run(nil); code != 0 || !strings.Contains(out.String(), "Usage:") {
-		t.Fatalf("bare invocation should print usage, got code %d: %s", code, out)
+	if code := app.Run([]string{"help"}); code != 0 || !strings.Contains(out.String(), "Usage:") {
+		t.Fatalf("help should print usage, got code %d: %s", code, out)
+	}
+}
+
+// Bare invocation is no longer help — it resolves the binding, then the
+// picker (never a silent default).
+func TestBareInvocationRunsPicker(t *testing.T) {
+	app, _, _, l := newTestApp(t, "2\n")
+	app.WorkDir = t.TempDir() // unbound directory
+	app.Run([]string{"create", "alpha", "--no-alias"})
+	app.Run([]string{"create", "beta", "--no-alias"})
+	app.Interactive = true
+
+	if code := app.Run(nil); code != 0 {
+		t.Fatalf("bare invocation should run the picker, got code %d", code)
+	}
+	if l.configDir != app.Store.Dir("beta") {
+		t.Fatalf("picker launched %q, want beta", l.configDir)
 	}
 }

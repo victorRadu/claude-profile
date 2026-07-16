@@ -4,7 +4,10 @@ Thanks for your interest in improving claude-profile!
 
 ## Getting started
 
-Requirements: Go 1.22+ (no other dependencies).
+Requirements: Go 1.24+ (no other dependencies). Older Go versions produce
+macOS binaries without an `LC_UUID` load command, which macOS 15 refuses to
+run (golang/go#68678) — 1.24 is the floor for that reason, not for language
+features.
 
 ```sh
 git clone https://github.com/victorRadu/claude-profile
