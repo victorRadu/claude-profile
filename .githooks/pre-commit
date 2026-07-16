@@ -1,0 +1,26 @@
+#!/bin/sh
+# Fast checks on every commit: formatting, vet, and (if installed) the linter.
+# Enable with: make hooks    Skip once with: git commit --no-verify
+set -e
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "pre-commit: Go toolchain not found — skipping checks (CI will run them)."
+  exit 0
+fi
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+[ -z "$staged" ] && exit 0
+
+unformatted=$(gofmt -s -l $staged)
+if [ -n "$unformatted" ]; then
+  echo "pre-commit: gofmt -s needed on:"
+  echo "$unformatted"
+  echo "fix with: make fmt"
+  exit 1
+fi
+
+go vet ./...
+
+if command -v golangci-lint >/dev/null 2>&1; then
+  golangci-lint run
+fi

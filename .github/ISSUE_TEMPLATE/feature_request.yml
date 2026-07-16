@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the workflow that's awkward today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        Keep in mind the project's core principle: profile resolution is always
+        explicit and always announced — features that add hidden state or
+        silent defaults won't be accepted.
+    validations:
+      required: true

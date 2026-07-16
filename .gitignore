@@ -1,0 +1,12 @@
+# Binaries
+/claude-profile
+/claude-profile.exe
+/dist/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
