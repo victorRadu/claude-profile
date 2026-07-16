@@ -1,0 +1,11 @@
+#!/bin/sh
+# Full test suite (with race detector) before anything leaves your machine.
+# Enable with: make hooks    Skip once with: git push --no-verify
+set -e
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "pre-push: Go toolchain not found — skipping tests (CI will run them)."
+  exit 0
+fi
+
+go test -race ./...
