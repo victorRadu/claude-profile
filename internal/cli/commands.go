@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/victorRadu/claude-profile/internal/migrate"
 	"github.com/victorRadu/claude-profile/internal/profile"
 	"github.com/victorRadu/claude-profile/internal/shell"
 )
@@ -53,6 +54,15 @@ func (a *App) create(args []string) error {
 	if !*noAlias {
 		a.installAliases(name)
 		a.offerGuardAlias()
+	}
+
+	// After any copy, so a copied statusLine is chained, never overwritten.
+	a.installStatusline(p)
+
+	// A new profile has every current feature built in, so no migration
+	// may ever run on it (see internal/migrate).
+	if err := migrate.StampAll(p, a.Version); err != nil {
+		fmt.Fprintf(a.Stderr, "Warning: could not record the profile's feature level: %v\n", err)
 	}
 
 	a.printf("\nDone. Open a new terminal (or reload your shell), then run: %s\n", a.Style.bold("claude-"+name))

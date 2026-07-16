@@ -3,6 +3,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,10 +77,12 @@ func (a *App) Run(args []string) int {
 	// No subcommand: resolve the directory binding, else the picker —
 	// never a silent default, and always announced by run's banner.
 	if len(args) == 0 {
+		a.startupHook("")
 		return a.exit(a.run(nil))
 	}
 	cmd := args[0]
 	rest := args[1:]
+	a.startupHook(cmd)
 	// `claude-profile <cmd> --help` shows the command's help page.
 	if _, known := helpTopics[cmd]; known && len(rest) > 0 && (rest[0] == "-h" || rest[0] == "--help") {
 		return a.exit(a.printHelp(cmd))
@@ -98,6 +101,12 @@ func (a *App) Run(args []string) int {
 		err = a.unlink()
 	case "status":
 		err = a.status()
+	case "statusline":
+		err = a.statuslineCmd(rest)
+	case "update":
+		err = a.updateCmd(rest)
+	case "migrate":
+		err = a.migrateCmd(rest)
 	case "alias":
 		err = a.aliasCmd(rest)
 	case "wrap":
@@ -122,8 +131,15 @@ func (a *App) Run(args []string) int {
 	return a.exit(err)
 }
 
+// errSilentExit signals a nonzero exit whose message was already printed
+// (e.g. `update --check` finding an update).
+var errSilentExit = errors.New("silent exit")
+
 // exit prints err (if any) to stderr and returns the process exit code.
 func (a *App) exit(err error) int {
+	if errors.Is(err, errSilentExit) {
+		return 1
+	}
 	if err != nil {
 		fmt.Fprintln(a.Stderr, "Error:", err)
 		return 1

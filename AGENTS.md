@@ -26,6 +26,9 @@ main.go                  entry point; version set via -ldflags, calls cli.Run
 internal/cli/            command dispatch, flag parsing, prompts, launching
 internal/profile/        profile store: create/list/remove/copy, name validation
 internal/shell/          shell detection + managed rc-file block editing
+internal/statusline/     Claude Code status line: render profile · model, chain/restore originals
+internal/update/         daily version check (cached, background), self-update with checksum verify
+internal/migrate/        append-only profile migrations; per-profile records (docs/updates.md)
 install.sh / .ps1        installers (download release or --local build)
 uninstall.sh / .ps1      removers
 .goreleaser.yaml         release build/publish config (GoReleaser v2)
@@ -42,6 +45,7 @@ These are load-bearing invariants of the project, not style preferences:
 - **Never touch user data outside the managed block.** All shell startup file edits go through `internal/shell` and stay strictly between the `# >>> claude-profile >>>` and `# <<< claude-profile <<<` markers. Nothing outside those markers may ever be modified.
 - **Never copy credentials or history between profiles.** The copy allow-list is `copyItems` in `internal/profile/profile.go` (`settings.json`, `CLAUDE.md`, `skills`, `agents`, `commands`). Do not add credential, history, or cache entries.
 - **Profile resolution is always explicit and always announced.** No hidden "active profile", no silent default fallback. Every launch prints the profile banner first. Features that add hidden state break the core design principle.
+- **The migration registry is append-only.** Entries in `internal/migrate/migrations.go` are never renumbered, reordered, or deleted. `Apply` functions must be idempotent, must skip cleanly when the feature is already present, and a recorded migration is never re-applied (user removals stay removed). New features go to both `create` and a migration. See `docs/updates.md`.
 - **All three platforms matter.** Code must build and behave sensibly on macOS, Linux and Windows. Use build tags for platform-specific paths.
 - **Tests accompany behaviour.** Every command and every rc-file edge case has a test (`*_test.go` alongside each package). Add or update tests with any behavioural change.
 

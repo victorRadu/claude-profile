@@ -16,7 +16,8 @@ type cmdHelp struct {
 // commandOrder controls the listing in the overview.
 var commandOrder = []string{
 	"create", "list", "run", "link", "unlink",
-	"status", "alias", "wrap", "remove", "version", "help",
+	"status", "statusline", "alias", "wrap", "remove",
+	"update", "migrate", "version", "help",
 }
 
 var helpTopics = map[string]cmdHelp{
@@ -97,6 +98,26 @@ var helpTopics = map[string]cmdHelp{
 		details: "Answers \"where am I?\": the profile that 'run' would use in this\n" +
 			"directory, how it was resolved, and its login state.",
 	},
+	"statusline": {
+		summary: "Show profile name and model in Claude Code's status line",
+		usage:   "claude-profile statusline <install|uninstall> <name>",
+		details: "Points the profile's statusLine (in its settings.json) at claude-profile,\n" +
+			"so every Claude Code session shows which profile is active and which\n" +
+			"model is in use — e.g. \"acme · Opus 4.8\".\n" +
+			"\n" +
+			"New profiles get this automatically on 'create'. If the profile already\n" +
+			"has a status line from another tool, it is never overwritten: the\n" +
+			"original command is saved next to settings.json and its output is\n" +
+			"appended after the profile and model. 'uninstall' puts the original\n" +
+			"back exactly as it was.\n" +
+			"\n" +
+			"'claude-profile statusline' with no arguments is the renderer itself,\n" +
+			"invoked by Claude Code with status JSON on stdin.",
+		examples: []string{
+			"claude-profile statusline install acme",
+			"claude-profile statusline uninstall acme",
+		},
+	},
 	"alias": {
 		summary: "Set or change the short alias for claude-profile",
 		usage:   "claude-profile alias [name] [--remove]",
@@ -147,6 +168,47 @@ var helpTopics = map[string]cmdHelp{
 			"claude-profile remove scratch",
 		},
 	},
+	"update": {
+		summary: "Update claude-profile to the latest release",
+		usage:   "claude-profile update [--check]",
+		details: "Downloads the latest release from GitHub, verifies its checksum, and\n" +
+			"replaces this binary in place, then runs 'migrate' so existing\n" +
+			"profiles pick up new features in the same step.\n" +
+			"\n" +
+			"Once a day (at most), claude-profile refreshes its idea of the latest\n" +
+			"version in a background process — the foreground never waits on the\n" +
+			"network — and prints a one-line notice when an update exists. Set\n" +
+			"CLAUDE_PROFILE_NO_UPDATE_CHECK=1 to disable the check and the notice;\n" +
+			"'update' itself keeps working either way.",
+		options: [][2]string{
+			{"--check", "Only report whether an update exists; exit code 1 means yes."},
+		},
+		examples: []string{
+			"claude-profile update",
+			"claude-profile update --check",
+		},
+	},
+	"migrate": {
+		summary: "Bring existing profiles up to date with new features",
+		usage:   "claude-profile migrate [--status]",
+		details: "New features usually land in two places: 'create' gives them to new\n" +
+			"profiles, and a migration gives them to profiles that already exist\n" +
+			"(for example, the status line). Migrations are idempotent, never touch\n" +
+			"credentials or history, never overwrite configuration from other tools\n" +
+			"(they chain or stash instead), and each one runs at most once per\n" +
+			"profile — a feature you remove afterwards is never forced back.\n" +
+			"\n" +
+			"Pending migrations also run automatically — always announced, never\n" +
+			"silent — the first time a new version of claude-profile runs\n" +
+			"interactively, and as the last step of 'update'.",
+		options: [][2]string{
+			{"--status", "Show each profile's migration state without changing anything."},
+		},
+		examples: []string{
+			"claude-profile migrate",
+			"claude-profile migrate --status",
+		},
+	},
 	"version": {
 		summary: "Print the version",
 		usage:   "claude-profile version",
@@ -171,13 +233,14 @@ func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintf(w, "%s\n  claude-profile <command> [arguments]\n  claude-profile [profile] [claude args...]   %s\n\n", st.bold("Usage:"), st.dim("# 'run' is the default action"))
 	fmt.Fprintf(w, "%s\n", st.bold("Commands:"))
 	for _, name := range commandOrder {
-		fmt.Fprintf(w, "  %s  %s\n", st.cyan(fmt.Sprintf("%-9s", name)), helpTopics[name].summary)
+		fmt.Fprintf(w, "  %s  %s\n", st.cyan(fmt.Sprintf("%-10s", name)), helpTopics[name].summary)
 	}
 	fmt.Fprintf(w, "\nRun %s for details on a command.\n\n", st.cyan("'claude-profile help <command>'"))
 	fmt.Fprintf(w, "%s\n", st.bold("Environment:"))
-	fmt.Fprintf(w, "  CLAUDE_PROFILES_DIR   Profile storage root (default: ~/.claude-profiles)\n")
-	fmt.Fprintf(w, "  CLAUDE_PROFILE_RC     Force a specific shell startup file for aliases\n")
-	fmt.Fprintf(w, "  NO_COLOR              Disable colored output\n")
+	fmt.Fprintf(w, "  CLAUDE_PROFILES_DIR             Profile storage root (default: ~/.claude-profiles)\n")
+	fmt.Fprintf(w, "  CLAUDE_PROFILE_RC               Force a specific shell startup file for aliases\n")
+	fmt.Fprintf(w, "  CLAUDE_PROFILE_NO_UPDATE_CHECK  Disable the daily update check and notice\n")
+	fmt.Fprintf(w, "  NO_COLOR                        Disable colored output\n")
 }
 
 // printHelp renders detailed help for one command.

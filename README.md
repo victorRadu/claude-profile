@@ -58,6 +58,14 @@ claude-profile never keeps a hidden "active profile" and never falls back to a s
 
 That matters most when accounts are involved: billing a client's project to your personal plan — or leaking a personal experiment into a client's workspace — is exactly the mistake this design makes impossible to miss. If you let claude-profile guard the plain `claude` command (offered during `create`), even typing `claude` out of habit can never silently land in the wrong account — it uses the current folder's binding or asks you to pick.
 
+The reminder doesn't stop at launch. Every new profile also gets a Claude Code status line showing the profile and the current model for the whole session:
+
+```
+client-acme · Opus 4.8
+```
+
+If a profile already has a status line from another tool, it is never overwritten — its output is kept and shown right after the profile and model, and `claude-profile statusline uninstall <name>` restores it exactly as it was.
+
 ## Bind a folder to a profile
 
 Profiles usually follow projects, so bind a project folder once:
@@ -99,15 +107,18 @@ The last row is the compatibility guarantee: anything invoking `claude` programm
 ## Commands
 
 ```
-create    Create a new profile
-list      List profiles and their login state
-run       Launch Claude Code — named profile, folder binding, or picker
-link      Bind the current folder to a profile
-unlink    Remove the current folder's binding
-status    Show which profile would launch here, and why
-alias     Set or change the short alias for claude-profile
-wrap      Optionally wrap the claude command itself
-remove    Delete a profile and its shell aliases
+create      Create a new profile
+list        List profiles and their login state
+run         Launch Claude Code — named profile, folder binding, or picker
+link        Bind the current folder to a profile
+unlink      Remove the current folder's binding
+status      Show which profile would launch here, and why
+statusline  Show profile name and model in Claude Code's status line
+alias       Set or change the short alias for claude-profile
+wrap        Optionally wrap the claude command itself
+remove      Delete a profile and its shell aliases
+update      Update claude-profile to the latest release
+migrate     Bring existing profiles up to date with new features
 ```
 
 One launch command, three tiers:
@@ -131,6 +142,16 @@ claudep -- -p "hi"               # after --, everything goes to claude
 Every command has detailed built-in help: `claude-profile help <command>`.
 
 Useful extras: `create go --from php` clones settings, skills and agents from an existing profile (credentials and history are never copied); `run client-acme --continue` passes everything after the name straight to Claude Code.
+
+## Staying up to date
+
+At most once a day, claude-profile checks in the background whether a newer release exists (the foreground never waits on the network) and prints a one-line notice when one does:
+
+```
+↑ claude-profile 0.4.0 is available (you have 0.3.1) — run: claude-profile update
+```
+
+`claude-profile update` downloads the release, verifies its checksum, replaces the binary in place, and finishes by running `migrate`, which brings profiles created by older versions up to date with features new profiles get automatically (like the status line). Migrations are never silent, never touch credentials or history, never overwrite configuration from other tools, and never force back a feature you deliberately removed. `claude-profile migrate --status` shows exactly where every profile stands; `CLAUDE_PROFILE_NO_UPDATE_CHECK=1` turns the daily check off. Details in [docs/updates.md](docs/updates.md).
 
 ## Good to know
 
