@@ -7,3 +7,11 @@ linters:
     - revive
     - unconvert
     - unparam
+  settings:
+    errcheck:
+      # Writes to the CLI's own stdout/stderr have no meaningful error
+      # handling; everything else must check its errors.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln

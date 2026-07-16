@@ -125,25 +125,25 @@ func (a *App) wrapStatus() error {
 		a.printf("Active:      %s %s\n", st.yellow("no"), st.dim("('claude' resolves to "+displayPath(resolved)+" — open a new terminal?)"))
 	}
 
-	real, err := findRealClaude(a.shimDir())
+	realPath, err := findRealClaude(a.shimDir())
 	if err != nil {
 		a.printf("Forwards to: %s\n", st.yellow("real claude not found — is Claude Code installed?"))
 		return nil
 	}
-	a.printf("Forwards to: %s\n", displayPath(real))
+	a.printf("Forwards to: %s\n", displayPath(realPath))
 	return nil
 }
 
 // wrapExec is the hidden command the shim invokes in place of claude.
 func (a *App) wrapExec(args []string) error {
-	real, err := findRealClaude(a.shimDir())
+	realPath, err := findRealClaude(a.shimDir())
 	if err != nil {
 		return fmt.Errorf("the real claude was not found in PATH — is Claude Code installed?")
 	}
 	// Route every launch (banner path and picker) through the real binary,
 	// never back through PATH, which would hit the shim again.
 	a.Launch = func(configDir string, claudeArgs []string) error {
-		return a.LaunchAt(real, configDir, claudeArgs)
+		return a.LaunchAt(realPath, configDir, claudeArgs)
 	}
 
 	if dir, err := a.cwd(); err == nil {
@@ -167,7 +167,7 @@ func (a *App) wrapExec(args []string) error {
 	}
 
 	// Transparent pass-through: byte-identical stock behavior.
-	return a.LaunchAt(real, "", args)
+	return a.LaunchAt(realPath, "", args)
 }
 
 // findRealClaude locates claude in PATH while ignoring the wrapper's own
@@ -185,8 +185,10 @@ func findRealClaude(shimDir string) (string, error) {
 		}
 		kept = append(kept, d)
 	}
-	os.Setenv("PATH", strings.Join(kept, string(os.PathListSeparator)))
-	defer os.Setenv("PATH", oldPath)
+	// Setenv on an existing variable cannot realistically fail; the value
+	// is restored either way.
+	_ = os.Setenv("PATH", strings.Join(kept, string(os.PathListSeparator)))
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	found, err := exec.LookPath("claude")
 	if err != nil {

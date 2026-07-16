@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"os"
 )
-
-var errNoRawMode = errors.New("raw terminal mode not supported")
 
 // key is a decoded keypress in the interactive select.
 type key int

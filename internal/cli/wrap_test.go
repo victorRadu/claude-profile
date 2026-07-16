@@ -86,7 +86,7 @@ func TestWrapShimDirHiddenFromList(t *testing.T) {
 
 func TestWrapExecBoundDirectory(t *testing.T) {
 	app, _, errBuf, _ := newTestApp(t, "")
-	real := fakeClaude(t)
+	realPath := fakeClaude(t)
 	l := hookLaunchAt(app)
 	app.WorkDir = t.TempDir()
 	app.Run([]string{"create", "go", "--no-alias"})
@@ -96,8 +96,8 @@ func TestWrapExecBoundDirectory(t *testing.T) {
 	if code := app.Run([]string{"wrap-exec", "--continue"}); code != 0 {
 		t.Fatalf("wrap-exec failed: %s", errBuf)
 	}
-	if !l.called || l.path != real {
-		t.Fatalf("launched %q, want real claude %q", l.path, real)
+	if !l.called || l.path != realPath {
+		t.Fatalf("launched %q, want real claude %q", l.path, realPath)
 	}
 	if l.configDir != app.Store.Dir("go") {
 		t.Fatalf("configDir = %q, want go profile", l.configDir)
@@ -112,7 +112,7 @@ func TestWrapExecBoundDirectory(t *testing.T) {
 
 func TestWrapExecUnboundNonInteractiveIsTransparent(t *testing.T) {
 	app, _, errBuf, _ := newTestApp(t, "")
-	real := fakeClaude(t)
+	realPath := fakeClaude(t)
 	l := hookLaunchAt(app)
 	app.WorkDir = t.TempDir()
 	app.Run([]string{"create", "go", "--no-alias"})
@@ -120,7 +120,7 @@ func TestWrapExecUnboundNonInteractiveIsTransparent(t *testing.T) {
 	if code := app.Run([]string{"wrap-exec", "-p", "hello"}); code != 0 {
 		t.Fatalf("wrap-exec failed: %s", errBuf)
 	}
-	if l.path != real {
+	if l.path != realPath {
 		t.Fatalf("launched %q, want real claude", l.path)
 	}
 	if l.configDir != "" {
@@ -136,7 +136,7 @@ func TestWrapExecUnboundNonInteractiveIsTransparent(t *testing.T) {
 
 func TestWrapExecUnboundInteractiveShowsPicker(t *testing.T) {
 	app, out, _, _ := newTestApp(t, "1\n")
-	real := fakeClaude(t)
+	realPath := fakeClaude(t)
 	l := hookLaunchAt(app)
 	app.WorkDir = t.TempDir()
 	app.Run([]string{"create", "go", "--no-alias"})
@@ -148,7 +148,7 @@ func TestWrapExecUnboundInteractiveShowsPicker(t *testing.T) {
 	if !strings.Contains(out.String(), "1) go") {
 		t.Fatalf("picker not shown:\n%s", out)
 	}
-	if l.path != real || l.configDir != app.Store.Dir("go") {
+	if l.path != realPath || l.configDir != app.Store.Dir("go") {
 		t.Fatalf("picker launch = %q %q, want real claude with go profile", l.path, l.configDir)
 	}
 }
@@ -190,7 +190,7 @@ func TestWrapExecStaleMarkerFailsLoudly(t *testing.T) {
 
 func TestFindRealClaudeSkipsShimDir(t *testing.T) {
 	app, _, _, _ := newTestApp(t, "")
-	real := fakeClaude(t) // PATH = realDir
+	realPath := fakeClaude(t) // PATH = realDir
 
 	// Put a decoy shim claude in the shim dir and prepend it to PATH.
 	if err := os.MkdirAll(app.shimDir(), 0o755); err != nil {
@@ -205,8 +205,8 @@ func TestFindRealClaudeSkipsShimDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if found != real {
-		t.Fatalf("findRealClaude = %q, want %q (must skip the shim)", found, real)
+	if found != realPath {
+		t.Fatalf("findRealClaude = %q, want %q (must skip the shim)", found, realPath)
 	}
 }
 
@@ -215,7 +215,7 @@ func TestFindRealClaudeSkipsSymlinkedShimDir(t *testing.T) {
 		t.Skip("symlink creation needs privileges on Windows")
 	}
 	app, _, _, _ := newTestApp(t, "")
-	real := fakeClaude(t) // PATH = realDir
+	realPath := fakeClaude(t) // PATH = realDir
 
 	// Shim dir reachable via a symlinked alias in PATH: skipping only the
 	// literal shim path would find the shim and recurse forever.
@@ -235,8 +235,8 @@ func TestFindRealClaudeSkipsSymlinkedShimDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if found != real {
-		t.Fatalf("findRealClaude = %q, want %q (symlinked shim dir must be skipped)", found, real)
+	if found != realPath {
+		t.Fatalf("findRealClaude = %q, want %q (symlinked shim dir must be skipped)", found, realPath)
 	}
 }
 

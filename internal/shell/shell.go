@@ -73,8 +73,10 @@ type Bash struct {
 	rc string // optional override
 }
 
+// Name implements Shell.
 func (Bash) Name() string { return "bash" }
 
+// StartupFile implements Shell.
 func (b Bash) StartupFile() (string, error) {
 	if b.rc != "" {
 		return b.rc, nil
@@ -91,26 +93,32 @@ func (b Bash) StartupFile() (string, error) {
 	return filepath.Join(home, ".bashrc"), nil
 }
 
+// AliasKey implements Shell.
 func (Bash) AliasKey(profile string) string { return "alias claude-" + profile + "=" }
 
-// The exe path is double-quoted inside the alias so paths containing
-// spaces survive word splitting.
+// AliasLine implements Shell. The exe path is double-quoted inside the
+// alias so paths containing spaces survive word splitting.
 func (Bash) AliasLine(profile, exe string) string {
 	return fmt.Sprintf(`alias claude-%s='"%s" run %s'`, profile, exe, profile)
 }
 
+// GuardKey implements Shell.
 func (Bash) GuardKey() string { return "alias claude=" }
 
+// GuardLine implements Shell.
 func (Bash) GuardLine(exe string) string {
 	return fmt.Sprintf(`alias claude='"%s" run --'`, exe)
 }
 
+// PathKey implements Shell.
 func (Bash) PathKey() string { return "export PATH=" }
 
+// PathLine implements Shell.
 func (Bash) PathLine(dir string) string {
 	return fmt.Sprintf(`export PATH="%s:$PATH"`, dir)
 }
 
+// SelfAliasLine implements Shell.
 func (Bash) SelfAliasLine(name, exe string) string {
 	return fmt.Sprintf(`alias %s='"%s"'  %s`, name, exe, SelfAliasTag)
 }
@@ -128,8 +136,10 @@ func (b Bash) isActive() bool {
 // Zsh manages ${ZDOTDIR:-$HOME}/.zshrc.
 type Zsh struct{}
 
+// Name implements Shell.
 func (Zsh) Name() string { return "zsh" }
 
+// StartupFile implements Shell.
 func (Zsh) StartupFile() (string, error) {
 	dir := os.Getenv("ZDOTDIR")
 	if dir == "" {
@@ -142,24 +152,31 @@ func (Zsh) StartupFile() (string, error) {
 	return filepath.Join(dir, ".zshrc"), nil
 }
 
+// AliasKey implements Shell.
 func (Zsh) AliasKey(profile string) string { return "alias claude-" + profile + "=" }
 
+// AliasLine implements Shell.
 func (Zsh) AliasLine(profile, exe string) string {
 	return fmt.Sprintf(`alias claude-%s='"%s" run %s'`, profile, exe, profile)
 }
 
+// GuardKey implements Shell.
 func (Zsh) GuardKey() string { return "alias claude=" }
 
+// GuardLine implements Shell.
 func (Zsh) GuardLine(exe string) string {
 	return fmt.Sprintf(`alias claude='"%s" run --'`, exe)
 }
 
+// PathKey implements Shell.
 func (Zsh) PathKey() string { return "export PATH=" }
 
+// PathLine implements Shell.
 func (Zsh) PathLine(dir string) string {
 	return fmt.Sprintf(`export PATH="%s:$PATH"`, dir)
 }
 
+// SelfAliasLine implements Shell.
 func (Zsh) SelfAliasLine(name, exe string) string {
 	return fmt.Sprintf(`alias %s='"%s"'  %s`, name, exe, SelfAliasTag)
 }
@@ -178,8 +195,10 @@ func (z Zsh) isActive() bool {
 // functions because PowerShell aliases cannot carry arguments.
 type PowerShell struct{}
 
+// Name implements Shell.
 func (PowerShell) Name() string { return "powershell" }
 
+// StartupFile implements Shell.
 func (PowerShell) StartupFile() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -192,26 +211,33 @@ func (PowerShell) StartupFile() (string, error) {
 	return filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"), nil
 }
 
+// AliasKey implements Shell.
 func (PowerShell) AliasKey(profile string) string {
 	return "function claude-" + profile + " "
 }
 
+// AliasLine implements Shell.
 func (PowerShell) AliasLine(profile, exe string) string {
 	return fmt.Sprintf("function claude-%s { & '%s' run %s @args }", profile, exe, profile)
 }
 
+// GuardKey implements Shell.
 func (PowerShell) GuardKey() string { return "function claude " }
 
+// GuardLine implements Shell.
 func (PowerShell) GuardLine(exe string) string {
 	return fmt.Sprintf("function claude { & '%s' run -- @args }", exe)
 }
 
+// PathKey implements Shell.
 func (PowerShell) PathKey() string { return "$env:Path =" }
 
+// PathLine implements Shell.
 func (PowerShell) PathLine(dir string) string {
 	return fmt.Sprintf("$env:Path = '%s;' + $env:Path", dir)
 }
 
+// SelfAliasLine implements Shell.
 func (PowerShell) SelfAliasLine(name, exe string) string {
 	return fmt.Sprintf("function %s { & '%s' @args }  %s", name, exe, SelfAliasTag)
 }

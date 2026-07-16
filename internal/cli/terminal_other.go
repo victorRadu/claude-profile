@@ -2,7 +2,12 @@
 
 package cli
 
-import "os"
+import (
+	"errors"
+	"os"
+)
+
+var errNoRawMode = errors.New("raw terminal mode not supported")
 
 // isTerminal falls back to a character-device check on platforms without
 // a dedicated isatty implementation.

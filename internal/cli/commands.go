@@ -260,9 +260,9 @@ func splitRunArgs(args []string) (name string, claudeArgs []string, err error) {
 }
 
 // parseChoice validates a 1-based menu selection.
-func parseChoice(choice string, max int) (int, error) {
+func parseChoice(choice string, limit int) (int, error) {
 	n, err := strconv.Atoi(choice)
-	if err != nil || n < 1 || n > max {
+	if err != nil || n < 1 || n > limit {
 		return 0, fmt.Errorf("invalid choice %q", choice)
 	}
 	return n, nil

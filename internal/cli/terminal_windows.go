@@ -35,5 +35,5 @@ func enableRaw(f *os.File) (func(), error) {
 	if r, _, err := setMode.Call(uintptr(handle), uintptr(raw)); r == 0 {
 		return nil, err
 	}
-	return func() { setMode.Call(uintptr(handle), uintptr(old)) }, nil
+	return func() { _, _, _ = setMode.Call(uintptr(handle), uintptr(old)) }, nil
 }

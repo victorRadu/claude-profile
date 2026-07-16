@@ -40,7 +40,7 @@ func enableRaw(f *os.File) (func(), error) {
 		return nil, errno
 	}
 	return func() {
-		syscall.Syscall6(syscall.SYS_IOCTL, fd,
+		_, _, _ = syscall.Syscall6(syscall.SYS_IOCTL, fd,
 			syscall.TCSETS, uintptr(unsafe.Pointer(&old)), 0, 0, 0)
 	}, nil
 }
