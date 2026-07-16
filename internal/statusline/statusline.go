@@ -220,7 +220,8 @@ func Uninstall(configDir string) (restored bool, err error) {
 }
 
 // readSettings parses settings.json into raw entries, so every key we do
-// not understand round-trips byte-for-byte. A missing file is an empty map.
+// not understand survives untouched in content (writing re-indents, but
+// never alters values). A missing file is an empty map.
 func readSettings(configDir string) (map[string]json.RawMessage, error) {
 	data, err := os.ReadFile(filepath.Join(configDir, SettingsFile))
 	if errors.Is(err, os.ErrNotExist) {

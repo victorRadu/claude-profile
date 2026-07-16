@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -113,10 +114,10 @@ func TestInstallPreservesOtherSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings := readSettingsMap(t, dir)
-	if string(settings["model"]) != `"opus"` {
+	if !sameJSON(t, string(settings["model"]), `"opus"`) {
 		t.Fatalf("model setting mangled: %s", settings["model"])
 	}
-	if string(settings["permissions"]) != `{"allow":["Bash(ls:*)"]}` {
+	if !sameJSON(t, string(settings["permissions"]), `{"allow":["Bash(ls:*)"]}`) {
 		t.Fatalf("permissions mangled: %s", settings["permissions"])
 	}
 }
@@ -187,7 +188,7 @@ func TestUninstallRestoresOriginal(t *testing.T) {
 		t.Fatal("expected the original statusLine to be restored")
 	}
 	settings := readSettingsMap(t, dir)
-	if string(settings["statusLine"]) != foreign {
+	if !sameJSON(t, string(settings["statusLine"]), foreign) {
 		t.Fatalf("statusLine = %s, want restored original", settings["statusLine"])
 	}
 	if fileExists(filepath.Join(dir, StashFile)) {
@@ -219,6 +220,21 @@ func TestUninstallRefusesForeignStatusLine(t *testing.T) {
 	if _, err := Uninstall(dir); err == nil {
 		t.Fatal("expected an error uninstalling a foreign statusLine")
 	}
+}
+
+// sameJSON compares two JSON documents semantically. Writing settings.json
+// re-indents preserved values (MarshalIndent formats RawMessage contents),
+// so byte comparison would fail on whitespace alone.
+func sameJSON(t *testing.T, a, b string) bool {
+	t.Helper()
+	var va, vb any
+	if err := json.Unmarshal([]byte(a), &va); err != nil {
+		t.Fatalf("invalid JSON %q: %v", a, err)
+	}
+	if err := json.Unmarshal([]byte(b), &vb); err != nil {
+		t.Fatalf("invalid JSON %q: %v", b, err)
+	}
+	return reflect.DeepEqual(va, vb)
 }
 
 func readSettingsMap(t *testing.T, dir string) map[string]json.RawMessage {
