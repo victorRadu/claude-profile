@@ -35,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/victorRadu/claude-profile/main/inst
 irm https://raw.githubusercontent.com/victorRadu/claude-profile/main/install.ps1 | iex
 ```
 
-That's it — a single small executable, nothing else to install. The installer also sets up `claudep` as a short alias, so `claudep status` works everywhere `claude-profile status` does — and it's yours to change: `claude-profile alias cpf` renames it, `claude-profile alias --remove` drops it. (Binaries for every platform are also on the [releases page](https://github.com/victorRadu/claude-profile/releases/latest).)
+That's it — a single small executable, nothing else to install. The installer also sets up `claudep` as a short alias, so `claudep status` works everywhere `claude-profile status` does — and `claudep client-acme` (or bare `claudep`) launches a profile, since `run` is the default action. It's yours to change: `claude-profile alias cpf` renames it, `claude-profile alias --remove` drops it. (Binaries for every platform are also on the [releases page](https://github.com/victorRadu/claude-profile/releases/latest).)
 
 ## Get started
 
@@ -116,6 +116,16 @@ One launch command, three tiers:
 claude-profile run client-acme   # explicit — this profile, now
 claude-profile run               # this folder's binding, else the picker
 claude-profile run -- -p "hi"    # after --, everything goes to claude
+```
+
+`run` is the default action, so you can drop the word entirely — anything that
+isn't a subcommand is treated as a launch. This is what makes the short alias
+so quick:
+
+```sh
+claudep client-acme              # same as: claude-profile run client-acme
+claudep                          # this folder's binding, else the picker
+claudep -- -p "hi"               # after --, everything goes to claude
 ```
 
 Every command has detailed built-in help: `claude-profile help <command>`.

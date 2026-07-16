@@ -58,12 +58,18 @@ var helpTopics = map[string]cmdHelp{
 			"\n" +
 			"Everything after the name (or after --) is passed straight to claude.\n" +
 			"A first argument that is not an existing profile is an error, never a\n" +
-			"guess. The claude-<name> aliases created by 'create' call this command.",
+			"guess. The claude-<name> aliases created by 'create' call this command.\n" +
+			"\n" +
+			"run is the default action: 'claude-profile' with no subcommand, or with\n" +
+			"a first argument that is not a subcommand, is the same as 'run'. So\n" +
+			"'claude-profile devops' and the 'claudep' short alias launch profiles\n" +
+			"directly.",
 		examples: []string{
 			"claude-profile run                        # binding, else picker",
 			"claude-profile run devops                 # explicit",
 			"claude-profile run go --continue          # extra args go to claude",
 			"claude-profile run -- -p \"explain this\"   # no name, args to claude",
+			"claude-profile devops                     # 'run' is optional",
 		},
 	},
 	"link": {
@@ -162,7 +168,7 @@ func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintf(w, "skills, agents, commands, settings, CLAUDE.md and history. One profile\n")
 	fmt.Fprintf(w, "per subscription (company, client, personal), or lean per-stack setups.\n")
 	fmt.Fprintf(w, "Every launch announces which profile is used and why — never a silent default.\n\n")
-	fmt.Fprintf(w, "%s\n  claude-profile <command> [arguments]\n\n", st.bold("Usage:"))
+	fmt.Fprintf(w, "%s\n  claude-profile <command> [arguments]\n  claude-profile [profile] [claude args...]   %s\n\n", st.bold("Usage:"), st.dim("# 'run' is the default action"))
 	fmt.Fprintf(w, "%s\n", st.bold("Commands:"))
 	for _, name := range commandOrder {
 		fmt.Fprintf(w, "  %s  %s\n", st.cyan(fmt.Sprintf("%-9s", name)), helpTopics[name].summary)
