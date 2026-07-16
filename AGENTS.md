@@ -8,7 +8,7 @@ Guidance for AI agents working in this repository. Human contributors should rea
 
 ## Build, test, lint
 
-Requires Go 1.22+ and nothing else (stdlib only). Use the Makefile:
+Requires Go 1.24+ and nothing else (stdlib only; 1.24 is the floor because older linkers emit macOS binaries without `LC_UUID`, which macOS 15 refuses to run — golang/go#68678). Use the Makefile:
 
 - `make` — lint + test + build (run this before proposing a change is done)
 - `make build` — compile to `./claude-profile` (version injected via ldflags)
