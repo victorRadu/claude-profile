@@ -29,7 +29,7 @@ var helpTopics = map[string]cmdHelp{
 			"PowerShell are detected automatically). On first launch, use /login\n" +
 			"inside Claude Code to authenticate the profile.",
 		options: [][2]string{
-			{"--from <profile|default>", "Copy settings.json, CLAUDE.md, skills, agents and commands from another profile, or from ~/.claude ('default'). Credentials and history are never copied."},
+			{"--from <profile|default>", "Copy configuration from another profile, or from ~/.claude ('default'): settings, CLAUDE.md, skills, agents, commands, onboarding state, folder approvals and MCP servers. Interactively you can copy everything or choose individual items. Credentials and history are never copied."},
 			{"--no-alias", "Skip installing shell aliases."},
 		},
 		examples: []string{

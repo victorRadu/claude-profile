@@ -46,7 +46,7 @@ claude-profile create personal                     # or start from a clean slate
 
 Open a new terminal and run `claude-client-acme` — then `/login` once with the client's account. That login, and everything that happens under it, now lives only in that profile. `claude-personal` is your own subscription, with its own history and rate limits.
 
-`--from` copies settings, `CLAUDE.md`, skills, agents and commands from your existing setup (or any other profile) as a starting point. Credentials and history are never copied — a new profile always starts with a clean login.
+`--from` copies configuration from your existing setup (or any other profile) as a starting point — settings, `CLAUDE.md`, skills, agents, commands, onboarding state, folder approvals and MCP servers. You choose interactively: copy everything, pick individual items, or start clean. Credentials and history are never copied — a new profile always starts with a clean login. Details in [docs/copy.md](docs/copy.md).
 
 ## You always know which profile you're in
 
@@ -141,7 +141,7 @@ claudep -- -p "hi"               # after --, everything goes to claude
 
 Every command has detailed built-in help: `claude-profile help <command>`.
 
-Useful extras: `create go --from php` clones settings, skills and agents from an existing profile (credentials and history are never copied); `run client-acme --continue` passes everything after the name straight to Claude Code.
+Useful extras: `create go --from php` clones configuration from an existing profile — including onboarding state and folder approvals, chosen interactively (credentials and history are never copied); `run client-acme --continue` passes everything after the name straight to Claude Code.
 
 ## Staying up to date
 

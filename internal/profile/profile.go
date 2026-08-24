@@ -20,10 +20,6 @@ const EnvRoot = "CLAUDE_PROFILES_DIR"
 // configuration directory.
 const EnvConfigDir = "CLAUDE_CONFIG_DIR"
 
-// copyItems are the entries copied when cloning a profile.
-// Credentials, history and caches are deliberately excluded.
-var copyItems = []string{"settings.json", "CLAUDE.md", "skills", "agents", "commands"}
-
 var nameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
 // ErrInvalidName is returned for profile names that could be unsafe in paths
@@ -148,24 +144,6 @@ func (p Profile) LoggedIn() (loggedIn, known bool) {
 	}
 	_, err := os.Stat(filepath.Join(p.Dir, ".credentials.json"))
 	return err == nil, true
-}
-
-// CopyFrom copies shareable configuration (settings, CLAUDE.md, skills,
-// agents, commands) from srcDir into the profile. Credentials and history
-// are never copied. It returns the number of items copied.
-func (p Profile) CopyFrom(srcDir string) (int, error) {
-	copied := 0
-	for _, item := range copyItems {
-		src := filepath.Join(srcDir, item)
-		if _, err := os.Stat(src); err != nil {
-			continue
-		}
-		if err := copyRecursive(src, filepath.Join(p.Dir, item)); err != nil {
-			return copied, fmt.Errorf("copying %s: %w", item, err)
-		}
-		copied++
-	}
-	return copied, nil
 }
 
 func copyRecursive(src, dst string) error {
