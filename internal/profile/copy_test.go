@@ -213,3 +213,86 @@ func TestTakeInventoryTolerant(t *testing.T) {
 		t.Error("denied-only state file must not report prefs")
 	}
 }
+
+func TestCopyFromSelective(t *testing.T) {
+	s := newStore(t)
+	src := t.TempDir()
+	mustWrite(t, filepath.Join(src, "settings.json"), `{"a":1}`)
+	mustWrite(t, filepath.Join(src, "CLAUDE.md"), "# rules")
+	mustWrite(t, filepath.Join(src, "skills", "alpha", "SKILL.md"), "a")
+	mustWrite(t, filepath.Join(src, "skills", "beta", "SKILL.md"), "b")
+	state := filepath.Join(src, ".claude.json")
+	mustWrite(t, state, stateFixture)
+
+	p, err := s.Create("sel")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := p.CopyFrom(src, state, Selection{
+		CatSettings: {All: true},
+		CatSkills:   {Names: []string{"beta", "missing", "../evil"}},
+		CatPrefs:    {All: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// settings.json + skills + .claude.json
+	if n != 3 {
+		t.Fatalf("copied %d items, want 3", n)
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, "skills", "beta", "SKILL.md")); err != nil {
+		t.Error("chosen skill beta not copied")
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, "skills", "alpha")); err == nil {
+		t.Error("unchosen skill alpha copied")
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, "CLAUDE.md")); err == nil {
+		t.Error("unselected CLAUDE.md copied")
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, "evil")); err == nil {
+		t.Error("path-traversal name escaped the skills directory")
+	}
+	raw, err := os.ReadFile(filepath.Join(p.Dir, ".claude.json"))
+	if err != nil {
+		t.Fatalf("state file not written: %v", err)
+	}
+	got := decode(t, raw)
+	if _, ok := got["theme"]; !ok {
+		t.Error("prefs missing from copied state")
+	}
+	if _, ok := got["oauthAccount"]; ok {
+		t.Error("oauthAccount leaked into copy")
+	}
+	if _, ok := got["projects"]; ok {
+		t.Error("projects copied without CatProjects selection")
+	}
+}
+
+func TestCopyFromStateTolerance(t *testing.T) {
+	s := newStore(t)
+	src := t.TempDir()
+	mustWrite(t, filepath.Join(src, "settings.json"), `{}`)
+
+	p, err := s.Create("tol")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Missing state file: files still copy, no error, no .claude.json.
+	n, err := p.CopyFrom(src, filepath.Join(src, ".claude.json"), EverythingSelection())
+	if err != nil || n != 1 {
+		t.Fatalf("missing state: got (%d, %v), want (1, nil)", n, err)
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, ".claude.json")); err == nil {
+		t.Error(".claude.json written from a missing source")
+	}
+	// Unparseable state file: same tolerance.
+	bad := filepath.Join(src, ".claude.json")
+	mustWrite(t, bad, "not json")
+	p2, err := s.Create("tol2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := p2.CopyFrom(src, bad, EverythingSelection()); err != nil || n != 1 {
+		t.Fatalf("bad state: got (%d, %v), want (1, nil)", n, err)
+	}
+}

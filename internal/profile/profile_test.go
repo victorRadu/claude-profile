@@ -91,7 +91,7 @@ func TestCopyFrom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n, err := p.CopyFrom(src)
+	n, err := p.CopyFrom(src, filepath.Join(src, ".claude.json"), EverythingSelection())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestCopyFromSkipsSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.CopyFrom(src); err != nil {
+	if _, err := p.CopyFrom(src, filepath.Join(src, ".claude.json"), EverythingSelection()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(filepath.Join(p.Dir, "skills", "link")); err == nil {

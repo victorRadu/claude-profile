@@ -2,6 +2,7 @@ package profile
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -210,4 +211,85 @@ func dirEntries(dir string) []string {
 	}
 	slices.Sort(names)
 	return names
+}
+
+// fileItems maps file-backed categories onto the entry they copy.
+var fileItems = []struct {
+	cat  Category
+	name string
+	dir  bool
+}{
+	{CatSettings, "settings.json", false},
+	{CatClaudeMD, "CLAUDE.md", false},
+	{CatSkills, "skills", true},
+	{CatAgents, "agents", true},
+	{CatCommands, "commands", true},
+}
+
+// CopyFrom copies the selected configuration from srcDir (and its state
+// file, which lives outside srcDir for the default ~/.claude source) into
+// the profile. Credentials and history are never copied: file items are an
+// allow-list, and the state file passes through filterState's deny list.
+// It returns the number of top-level items copied.
+func (p Profile) CopyFrom(srcDir, stateFile string, sel Selection) (int, error) {
+	copied := 0
+	for _, item := range fileItems {
+		pick, ok := sel[item.cat]
+		if !ok {
+			continue
+		}
+		src := filepath.Join(srcDir, item.name)
+		if _, err := os.Stat(src); err != nil {
+			continue
+		}
+		switch {
+		case pick.All:
+			if err := copyRecursive(src, filepath.Join(p.Dir, item.name)); err != nil {
+				return copied, fmt.Errorf("copying %s: %w", item.name, err)
+			}
+			copied++
+		case item.dir && len(pick.Names) > 0:
+			n := 0
+			for _, child := range pick.Names {
+				// Names come from dir listings, but never trust them to
+				// stay inside the profile.
+				if child != filepath.Base(child) {
+					continue
+				}
+				childSrc := filepath.Join(src, child)
+				if _, err := os.Lstat(childSrc); err != nil {
+					continue
+				}
+				if err := copyRecursive(childSrc, filepath.Join(p.Dir, item.name, child)); err != nil {
+					return copied, fmt.Errorf("copying %s: %w", filepath.Join(item.name, child), err)
+				}
+				n++
+			}
+			if n > 0 {
+				copied++
+			}
+		}
+	}
+	n, err := p.copyState(stateFile, sel)
+	if err != nil {
+		return copied, err
+	}
+	return copied + n, nil
+}
+
+// copyState writes the filtered state file into the profile. A missing or
+// unparseable source state file is tolerated: the copy proceeds without it.
+func (p Profile) copyState(stateFile string, sel Selection) (int, error) {
+	raw, err := os.ReadFile(stateFile)
+	if err != nil {
+		return 0, nil
+	}
+	filtered, ferr := filterState(raw, sel)
+	if ferr != nil || filtered == nil {
+		return 0, nil
+	}
+	if err := os.WriteFile(filepath.Join(p.Dir, ".claude.json"), filtered, 0o600); err != nil {
+		return 0, fmt.Errorf("writing state file: %w", err)
+	}
+	return 1, nil
 }
