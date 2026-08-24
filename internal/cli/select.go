@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"slices"
+	"strings"
 )
 
 // key is a decoded keypress in the interactive select.
@@ -15,6 +17,7 @@ const (
 	keyEnter
 	keyCancel
 	keyDigit
+	keySpace
 )
 
 // decodeKey interprets the first key in a raw-mode input buffer and
@@ -35,6 +38,8 @@ func decodeKey(b []byte) (k key, digit, consumed int) {
 		return keyUp, 0, 1
 	case 'j':
 		return keyDown, 0, 1
+	case ' ':
+		return keySpace, 0, 1
 	case 27: // ESC
 		if len(b) >= 3 && b[1] == '[' {
 			switch b[2] {
@@ -191,4 +196,129 @@ func (a *App) confirmKey(prompt string) bool {
 		fmt.Fprint(a.Stdout, "n\r\n")
 	}
 	return yes
+}
+
+// multiSelect shows a checklist and returns the chosen indexes, sorted.
+// nil means nothing was chosen (or the user cancelled). On a real terminal
+// it renders a space-to-toggle menu; otherwise a numbered prompt accepting
+// comma-separated choices, so pipes and tests keep working.
+func (a *App) multiSelect(title string, options []string) ([]int, error) {
+	if f, ok := a.Stdin.(*os.File); ok && a.Interactive && isTerminal(f) {
+		if picks, handled := a.multiSelectRaw(f, title, options); handled {
+			return picks, nil
+		}
+	}
+	return a.multiSelectNumbered(title, options)
+}
+
+func (a *App) multiSelectRaw(f *os.File, title string, options []string) (picks []int, handled bool) {
+	restore, err := enableRaw(f)
+	if err != nil {
+		return nil, false
+	}
+	defer restore()
+
+	out := a.Stdout
+	st := a.Style
+	fmt.Fprint(out, "\x1b[?25l")
+	defer fmt.Fprint(out, "\x1b[?25h")
+
+	sel := 0
+	checked := make([]bool, len(options))
+	lines := len(options) + 2
+	render := func() {
+		fmt.Fprintf(out, "%s\x1b[K\r\n", st.bold(title))
+		for i, opt := range options {
+			box := "◯"
+			if checked[i] {
+				box = st.green("◉")
+			}
+			if i == sel {
+				fmt.Fprintf(out, "%s %s %s\x1b[K\r\n", st.cyan("❯"), box, st.bold(st.cyan(opt)))
+			} else {
+				fmt.Fprintf(out, "  %s %s\x1b[K\r\n", box, opt)
+			}
+		}
+		fmt.Fprintf(out, "%s\x1b[K\r", st.dim("↑/↓ move · space toggle · enter confirm · esc cancel"))
+	}
+	erase := func() {
+		fmt.Fprintf(out, "\x1b[%dA\r\x1b[J", lines-1)
+	}
+
+	render()
+	for {
+		if !a.fillPending(f) {
+			erase()
+			return nil, true
+		}
+		k, d, consumed := decodeKey(a.rawPending)
+		a.rawPending = a.rawPending[consumed:]
+		switch k {
+		case keyUp:
+			sel = (sel + len(options) - 1) % len(options)
+		case keyDown:
+			sel = (sel + 1) % len(options)
+		case keySpace:
+			checked[sel] = !checked[sel]
+		case keyDigit:
+			if d < len(options) {
+				checked[d] = !checked[d]
+			} else {
+				continue
+			}
+		case keyEnter:
+			erase()
+			for i, c := range checked {
+				if c {
+					picks = append(picks, i)
+				}
+			}
+			return picks, true
+		case keyCancel:
+			erase()
+			return nil, true
+		case keyNone:
+			continue
+		}
+		fmt.Fprintf(out, "\x1b[%dA\r", lines-1)
+		render()
+	}
+}
+
+// multiSelectNumbered is the line-based fallback.
+func (a *App) multiSelectNumbered(title string, options []string) ([]int, error) {
+	a.printf("%s\n", a.Style.bold(title))
+	for i, opt := range options {
+		a.printf("%3d) %s\n", i+1, opt)
+	}
+	choice := a.ask("Choose [e.g. 1,3 · 'a' for all · Enter for none] ")
+	return parseMultiChoice(choice, len(options))
+}
+
+// parseMultiChoice parses a comma-separated list of 1-based selections;
+// "a" selects everything, an empty input selects nothing.
+func parseMultiChoice(input string, limit int) ([]int, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil, nil
+	}
+	if input == "a" || input == "A" {
+		all := make([]int, limit)
+		for i := range all {
+			all[i] = i
+		}
+		return all, nil
+	}
+	var out []int
+	for _, part := range strings.Split(input, ",") {
+		n, err := parseChoice(strings.TrimSpace(part), limit)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(out, n-1) {
+			out = append(out, n-1)
+		}
+	}
+	slices.Sort(out)
+	return out, nil
 }

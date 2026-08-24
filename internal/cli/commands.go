@@ -26,7 +26,7 @@ func splitName(args []string) (name string, rest []string) {
 func (a *App) create(args []string) error {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	fs.SetOutput(a.Stderr)
-	from := fs.String("from", "", "copy settings/skills from another profile, or 'default' for ~/.claude")
+	from := fs.String("from", "", "copy configuration from another profile, or 'default' for ~/.claude")
 	noAlias := fs.Bool("no-alias", false, "do not install shell aliases")
 	name, rest := splitName(args)
 	if err := fs.Parse(rest); err != nil {
@@ -67,62 +67,6 @@ func (a *App) create(args []string) error {
 
 	a.printf("\nDone. Open a new terminal (or reload your shell), then run: %s\n", a.Style.bold("claude-"+name))
 	a.printf("%s\n", a.Style.dim("On first run, use /login inside Claude Code to authenticate this profile."))
-	return nil
-}
-
-// offerCopySource interactively picks a copy source; empty result means
-// start clean.
-func (a *App) offerCopySource(newName string) string {
-	var sources []string
-	profiles, err := a.Store.List()
-	if err == nil {
-		for _, p := range profiles {
-			if p.Name != newName {
-				sources = append(sources, p.Name)
-			}
-		}
-	}
-	if _, ok := profile.DefaultConfigDir(); ok {
-		sources = append(sources, "default")
-	}
-	if len(sources) == 0 {
-		return ""
-	}
-	options := make([]string, 0, len(sources)+1)
-	options = append(options, "Start clean — don't copy anything")
-	for _, s := range sources {
-		if s == "default" {
-			options = append(options, "default (~/.claude): settings, CLAUDE.md, skills, agents, commands")
-		} else {
-			options = append(options, s)
-		}
-	}
-	idx, err := a.selectFrom("Copy settings and skills into the new profile?", options)
-	if err != nil || idx <= 0 {
-		return ""
-	}
-	return sources[idx-1]
-}
-
-func (a *App) copyInto(p profile.Profile, from string) error {
-	var srcDir string
-	if from == "default" {
-		dir, ok := profile.DefaultConfigDir()
-		if !ok {
-			return fmt.Errorf("no default Claude Code config found at ~/.claude")
-		}
-		srcDir = dir
-	} else {
-		if !a.Store.Exists(from) {
-			return fmt.Errorf("source profile %q does not exist", from)
-		}
-		srcDir = a.Store.Dir(from)
-	}
-	n, err := p.CopyFrom(srcDir)
-	if err != nil {
-		return err
-	}
-	a.printf("Copied %d item(s) from %s (credentials and history are never copied).\n", n, srcDir)
 	return nil
 }
 

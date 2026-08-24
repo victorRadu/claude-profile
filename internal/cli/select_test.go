@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -85,5 +86,57 @@ func TestOfferCopySourcePicksProfile(t *testing.T) {
 
 	if src := app.offerCopySource("new"); src != "existing" {
 		t.Fatalf("option 2 should pick the profile, got %q", src)
+	}
+}
+
+func TestParseMultiChoice(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []int
+		err  bool
+	}{
+		{"", nil, false},
+		{"a", []int{0, 1, 2, 3}, false},
+		{"A", []int{0, 1, 2, 3}, false},
+		{"2", []int{1}, false},
+		{"1,3", []int{0, 2}, false},
+		{" 1 , 3 ", []int{0, 2}, false},
+		{"3,1,3", []int{0, 2}, false},
+		{"0", nil, true},
+		{"5", nil, true},
+		{"x", nil, true},
+		{"1,x", nil, true},
+	}
+	for _, c := range cases {
+		got, err := parseMultiChoice(c.in, 4)
+		if c.err != (err != nil) {
+			t.Errorf("parseMultiChoice(%q) error = %v, want error=%v", c.in, err, c.err)
+			continue
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("parseMultiChoice(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestDecodeKeySpace(t *testing.T) {
+	k, _, consumed := decodeKey([]byte{' '})
+	if k != keySpace || consumed != 1 {
+		t.Errorf("decodeKey(space) = (%v, %d), want (keySpace, 1)", k, consumed)
+	}
+}
+
+func TestMultiSelectNumberedFallback(t *testing.T) {
+	app, out, _, _ := newTestApp(t, "1,3\n")
+	app.Interactive = true // strings.Reader stdin still forces the fallback
+	got, err := app.multiSelect("Pick", []string{"a", "b", "c"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, []int{0, 2}) {
+		t.Fatalf("multiSelect = %v, want [0 2]", got)
+	}
+	if !strings.Contains(out.String(), "1) a") {
+		t.Fatalf("numbered menu not rendered:\n%s", out)
 	}
 }
