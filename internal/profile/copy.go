@@ -2,6 +2,8 @@ package profile
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"slices"
 )
 
@@ -127,4 +129,85 @@ func filterServers(v any, pick Pick) map[string]any {
 func toMap(v any) map[string]any {
 	m, _ := v.(map[string]any)
 	return m
+}
+
+// Inventory lists what a copy source actually contains, so prompts can
+// show only real choices. Collection fields are sorted.
+type Inventory struct {
+	HasSettings bool
+	HasClaudeMD bool
+	HasPrefs    bool
+	Skills      []string
+	Agents      []string
+	Commands    []string
+	Projects    []string
+	MCPServers  []string
+}
+
+// TakeInventory inspects a source config directory and its state file.
+// A missing or unparseable state file yields an empty state inventory;
+// the file items are reported regardless.
+func TakeInventory(srcDir, stateFile string) Inventory {
+	inv := Inventory{
+		HasSettings: fileExists(filepath.Join(srcDir, "settings.json")),
+		HasClaudeMD: fileExists(filepath.Join(srcDir, "CLAUDE.md")),
+		Skills:      dirEntries(filepath.Join(srcDir, "skills")),
+		Agents:      dirEntries(filepath.Join(srcDir, "agents")),
+		Commands:    dirEntries(filepath.Join(srcDir, "commands")),
+	}
+	raw, err := os.ReadFile(stateFile)
+	if err != nil {
+		return inv
+	}
+	var src map[string]any
+	if err := json.Unmarshal(raw, &src); err != nil {
+		return inv
+	}
+	for k := range src {
+		if k != "projects" && k != "mcpServers" && !slices.Contains(deniedTopLevel, k) {
+			inv.HasPrefs = true
+			break
+		}
+	}
+	servers := map[string]bool{}
+	for name := range toMap(src["mcpServers"]) {
+		servers[name] = true
+	}
+	for path, v := range toMap(src["projects"]) {
+		entry := toMap(v)
+		for name := range toMap(entry["mcpServers"]) {
+			servers[name] = true
+		}
+		for k := range entry {
+			if k != "mcpServers" && !slices.Contains(deniedProject, k) {
+				inv.Projects = append(inv.Projects, path)
+				break
+			}
+		}
+	}
+	for name := range servers {
+		inv.MCPServers = append(inv.MCPServers, name)
+	}
+	slices.Sort(inv.Projects)
+	slices.Sort(inv.MCPServers)
+	return inv
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// dirEntries lists the names inside dir, sorted; nil when dir is absent.
+func dirEntries(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	slices.Sort(names)
+	return names
 }

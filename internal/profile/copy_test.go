@@ -2,6 +2,9 @@ package profile
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -148,5 +151,65 @@ func TestFilterStateEmptyAndInvalid(t *testing.T) {
 	}
 	if !strings.Contains(stateFixture, "history") {
 		t.Fatal("fixture must exercise the history deny rule")
+	}
+}
+
+func TestTakeInventory(t *testing.T) {
+	src := t.TempDir()
+	mustWrite(t, filepath.Join(src, "settings.json"), `{}`)
+	mustWrite(t, filepath.Join(src, "skills", "zeta", "SKILL.md"), "s")
+	mustWrite(t, filepath.Join(src, "skills", "alpha", "SKILL.md"), "s")
+	mustWrite(t, filepath.Join(src, "agents", "helper.md"), "a")
+	state := filepath.Join(src, ".claude.json")
+	mustWrite(t, state, stateFixture)
+
+	inv := TakeInventory(src, state)
+	if !inv.HasSettings {
+		t.Error("HasSettings = false, want true")
+	}
+	if inv.HasClaudeMD {
+		t.Error("HasClaudeMD = true for absent CLAUDE.md")
+	}
+	if !reflect.DeepEqual(inv.Skills, []string{"alpha", "zeta"}) {
+		t.Errorf("Skills = %v, want [alpha zeta] sorted", inv.Skills)
+	}
+	if !reflect.DeepEqual(inv.Agents, []string{"helper.md"}) {
+		t.Errorf("Agents = %v", inv.Agents)
+	}
+	if len(inv.Commands) != 0 {
+		t.Errorf("Commands = %v, want empty", inv.Commands)
+	}
+	if !inv.HasPrefs {
+		t.Error("HasPrefs = false, want true (fixture has top-level prefs)")
+	}
+	if !reflect.DeepEqual(inv.Projects, []string{"/home/u/alpha", "/home/u/beta"}) {
+		t.Errorf("Projects = %v", inv.Projects)
+	}
+	if !reflect.DeepEqual(inv.MCPServers, []string{"alpha-db", "beta-lint", "global-search"}) {
+		t.Errorf("MCPServers = %v", inv.MCPServers)
+	}
+}
+
+func TestTakeInventoryTolerant(t *testing.T) {
+	src := t.TempDir()
+	inv := TakeInventory(src, filepath.Join(src, "missing.json"))
+	if inv.HasPrefs || len(inv.Projects) != 0 || len(inv.MCPServers) != 0 {
+		t.Errorf("missing state file must yield empty state inventory: %+v", inv)
+	}
+	bad := filepath.Join(src, "bad.json")
+	if err := os.WriteFile(bad, []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inv = TakeInventory(src, bad)
+	if inv.HasPrefs || len(inv.Projects) != 0 {
+		t.Errorf("unparseable state file must yield empty state inventory: %+v", inv)
+	}
+	// A state file where only denied keys exist offers nothing to copy.
+	onlyDenied := filepath.Join(src, "denied.json")
+	if err := os.WriteFile(onlyDenied, []byte(`{"oauthAccount":{},"userID":"x"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if inv := TakeInventory(src, onlyDenied); inv.HasPrefs {
+		t.Error("denied-only state file must not report prefs")
 	}
 }
