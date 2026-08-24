@@ -253,7 +253,7 @@ func (p Profile) CopyFrom(srcDir, stateFile string, sel Selection) (int, error) 
 			for _, child := range pick.Names {
 				// Names come from dir listings, but never trust them to
 				// stay inside the profile.
-				if child != filepath.Base(child) {
+				if child == "." || child == ".." || child != filepath.Base(child) {
 					continue
 				}
 				childSrc := filepath.Join(src, child)

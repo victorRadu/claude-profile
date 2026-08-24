@@ -54,6 +54,11 @@ a multi-select list of the individual items.
 | Folder trust & permissions | all / individual folders |
 | MCP servers | all / individual servers |
 
+The same three-way prompt appears when `--from` is given explicitly and
+stdin is a terminal — naming a source up front doesn't skip the choice of
+how much of it to copy; cancelling it starts the profile clean, announced
+just like the fully interactive path.
+
 When stdin is not a terminal (scripts, CI), `--from` copies everything —
 the most useful default, and the only honest one, since nobody is there to
 choose.
@@ -73,6 +78,12 @@ Regardless of mode, the copy strips:
   `/login`.
 - Symlinks inside copied directories — they may point at credentials or at
   files outside the profile, and following them would break isolation.
+
+MCP server definitions are shareable config, not something stripped by the
+deny-list — but a server's own config can embed credentials of its own (an
+API key in an `env` value, say), so the per-server choice in "Choose what to
+copy" is what lets the user leave one behind instead of carrying its tokens
+along.
 
 This is the deliberate gap between "identical" and "shareable": a copy
 behaves like the original (no re-onboarding, no re-approving folders) but is

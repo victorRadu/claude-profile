@@ -221,6 +221,7 @@ func TestCopyFromSelective(t *testing.T) {
 	mustWrite(t, filepath.Join(src, "CLAUDE.md"), "# rules")
 	mustWrite(t, filepath.Join(src, "skills", "alpha", "SKILL.md"), "a")
 	mustWrite(t, filepath.Join(src, "skills", "beta", "SKILL.md"), "b")
+	mustWrite(t, filepath.Join(src, ".credentials.json"), "SECRET")
 	state := filepath.Join(src, ".claude.json")
 	mustWrite(t, state, stateFixture)
 
@@ -230,7 +231,7 @@ func TestCopyFromSelective(t *testing.T) {
 	}
 	n, err := p.CopyFrom(src, state, Selection{
 		CatSettings: {All: true},
-		CatSkills:   {Names: []string{"beta", "missing", "../evil"}},
+		CatSkills:   {Names: []string{"beta", "missing", "../evil", "..", "."}},
 		CatPrefs:    {All: true},
 	})
 	if err != nil {
@@ -251,6 +252,9 @@ func TestCopyFromSelective(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(p.Dir, "evil")); err == nil {
 		t.Error("path-traversal name escaped the skills directory")
+	}
+	if _, err := os.Stat(filepath.Join(p.Dir, ".credentials.json")); err == nil {
+		t.Error(". or .. name leaked the entire source config dir into the profile")
 	}
 	raw, err := os.ReadFile(filepath.Join(p.Dir, ".claude.json"))
 	if err != nil {
