@@ -69,6 +69,9 @@ Regardless of mode, the copy strips:
 
 - `oauthAccount` and `userID` (state file, top level) — account identity.
   A copied profile gets its own identity on first login.
+- `primaryApiKey` and `customApiKeyResponses` (state file, top level) — an
+  API key entered through the console login flow, and the list of API keys
+  approved or rejected for use. Keys are credentials, so they stay put.
 - `history` (state file, per project) and any history/session files —
   conversations belong to the profile they happened in.
 - `lastSessionId` (state file, per project) — sessions are not copied, so

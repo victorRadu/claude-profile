@@ -18,6 +18,8 @@ const stateFixture = `{
 	"numStartups": 42,
 	"oauthAccount": {"emailAddress": "a@b.c", "accountUuid": "u-1"},
 	"userID": "deadbeef",
+	"primaryApiKey": "sk-ant-api03-secret",
+	"customApiKeyResponses": {"approved": ["secret"], "rejected": []},
 	"mcpServers": {"global-search": {"command": "srv"}},
 	"projects": {
 		"/home/u/alpha": {
@@ -50,7 +52,7 @@ func TestFilterStateEverything(t *testing.T) {
 	}
 	got := decode(t, out)
 
-	for _, denied := range []string{"oauthAccount", "userID"} {
+	for _, denied := range []string{"oauthAccount", "userID", "primaryApiKey", "customApiKeyResponses"} {
 		if _, ok := got[denied]; ok {
 			t.Errorf("%s must never be copied", denied)
 		}

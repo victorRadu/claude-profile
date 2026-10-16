@@ -49,10 +49,10 @@ func EverythingSelection() Selection {
 }
 
 // deniedTopLevel and deniedProject are stripped from the state file
-// unconditionally: account identity and conversation history are never
-// shareable between profiles (see docs/copy.md).
+// unconditionally: account identity, API keys and conversation history
+// are never shareable between profiles (see docs/copy.md).
 var (
-	deniedTopLevel = []string{"oauthAccount", "userID"}
+	deniedTopLevel = []string{"oauthAccount", "userID", "primaryApiKey", "customApiKeyResponses"}
 	deniedProject  = []string{"history", "lastSessionId"}
 )
 
