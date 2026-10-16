@@ -19,7 +19,7 @@ If you work with more than one Claude subscription — consulting for clients wh
 
 claude-profile gives every account its own complete, isolated profile: login, settings, skills, agents, `CLAUDE.md` and history. Usage lands on the right subscription, client conversations never mix with personal ones, and each rate limit is its own.
 
-**The same isolation also cuts waste.** A profile only loads what's in it — so a lean `go` or `devops` profile with just that stack's skills and conventions means less context pollution and lower token usage than one config carrying everything you've ever installed. Great for scratch profiles to test new skill packs, too.
+**The same isolation also cuts waste.** A profile only loads what's in it — so a lean `go` or `devops` profile with just that stack's skills and conventions means less context pollution and lower token usage than one config carrying everything you've ever installed. Great for scratch profiles to test new skill packs, too. And a profile can be a role: a read-only reviewer on its own account, for example — see [below](#use-case-a-reviewer-on-its-own-account).
 
 ## Install
 
@@ -85,6 +85,54 @@ Profile root:   ~/.claude-profiles
 This directory: "client-acme" via .claude-profile in ~/work/acme
 Login:          logged in
 ```
+
+## Use case: a reviewer on its own account
+
+If all you want is a fresh pair of eyes on a diff, a reviewer subagent inside your normal session is enough — the [superpowers](https://github.com/obra/superpowers) `requesting-code-review` skill or Claude Code's built-in `/code-review` do exactly that. Reach for a second profile when the reviewer should be something a subagent can't be: **a different account**, so review rounds don't eat into the coding account's rate limit, or **a hard read-only wall**, so it can report but never touch a file.
+
+Two profiles, two jobs:
+
+```sh
+claude-profile create coder --from default   # your usual setup: TDD, framework skills, the lot
+claude-profile create review --from coder    # keep only the review skills in the picker
+claude-review                                # /login with the account that pays for reviews
+```
+
+Make the reviewer read-only — and prompt-free, so it can run unattended — in `~/.claude-profiles/review/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Read", "Grep", "Glob", "Bash(git diff:*)", "Bash(git log:*)"],
+    "deny": ["Edit", "Write", "NotebookEdit"]
+  }
+}
+```
+
+and give it its job in `~/.claude-profiles/review/CLAUDE.md`:
+
+```
+You review code. You never fix it. List findings as bullets with file and line,
+most severe first, then end with a single line: APPROVED or CHANGES REQUESTED.
+```
+
+Now close the loop from the coder's side with a skill in `~/.claude-profiles/coder/skills/review/SKILL.md`:
+
+```markdown
+---
+name: review
+description: Get a cold review of the current diff from the review profile, fix the findings, repeat
+---
+
+1. Send the diff to the reviewer (use `git diff main...HEAD` for a whole branch):
+
+       git diff | claude-profile run review -- -p "Review the diff on stdin"
+
+2. Fix every valid finding. Push back on wrong ones, with reasoning.
+3. Repeat until the last line is APPROVED. Stop after three rounds and report what is left.
+```
+
+Allow that one command in the coder's `settings.json` so the skill never prompts: `"allow": ["Bash(claude-profile run review:*)"]`. From then on, `/review` in a `claude-coder` session hands the diff to a process with its own login, its own `CLAUDE.md`, its own skills and no write tools. The only things that cross between the two are the diff and the findings — the banner goes to stderr, so the reviewer's verdict comes back on a clean stdout.
 
 ## Optional: wrap the `claude` command everywhere
 
