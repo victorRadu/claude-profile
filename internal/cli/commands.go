@@ -53,7 +53,7 @@ func (a *App) create(args []string) error {
 
 	if !*noAlias {
 		a.installAliases(name)
-		a.offerGuardAlias()
+		a.offerGuard()
 	}
 
 	// After any copy, so a copied statusLine is chained, never overwritten.
@@ -81,43 +81,24 @@ func (a *App) installAliases(name string) {
 	}
 }
 
-// offerGuardAlias optionally redirects plain `claude` to the profile picker,
-// so the default profile is not started by accident. Never overrides an
-// existing user alias.
-func (a *App) offerGuardAlias() {
-	if !a.Interactive {
+// offerGuard optionally makes plain `claude` profile-aware by installing
+// the PATH wrapper (see wrap.go). A shell alias cannot do this job: aliases
+// exist only in interactive shells, so git hooks, IDE integrations, scripts
+// and anything else running `claude` would still land silently in the
+// default profile — exactly what this tool promises can never happen. The
+// wrapper is a real executable ahead of claude in PATH, so a bound folder
+// resolves its profile everywhere, and an unbound non-interactive launch
+// still reaches the stock claude untouched.
+func (a *App) offerGuard() {
+	if !a.Interactive || a.wrapInstalled() {
 		return
 	}
-	shells := shell.Detect()
-	needed := false
-	for _, sh := range shells {
-		file, err := sh.StartupFile()
-		if err != nil {
-			continue
-		}
-		if has, _ := shell.HasLine(file, sh.GuardKey()); !has {
-			needed = true
-		}
-	}
-	if !needed {
+	if !a.confirm("Make plain 'claude' profile-aware everywhere (bound folders use their profile — also in git hooks, IDEs and scripts; unbound terminals get the picker)?") {
 		return
 	}
-	if !a.confirm("Make plain 'claude' profile-aware (use this directory's binding, else the picker), so you never start the default profile by mistake?") {
-		return
+	if err := a.wrapInstall(); err != nil {
+		fmt.Fprintf(a.Stderr, "Warning: could not install the claude wrapper: %v\n", err)
 	}
-	for _, sh := range shells {
-		file, err := sh.StartupFile()
-		if err != nil {
-			continue
-		}
-		if has, _ := shell.HasLine(file, sh.GuardKey()); has {
-			continue
-		}
-		if err := shell.SetLine(file, sh.GuardKey(), sh.GuardLine(a.Exe)); err != nil {
-			fmt.Fprintf(a.Stderr, "Warning: could not update %s: %v\n", file, err)
-		}
-	}
-	a.printf("Plain 'claude' now resolves the profile explicitly (use 'command claude' for the default profile).\n")
 }
 
 func (a *App) list() error {

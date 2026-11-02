@@ -50,6 +50,12 @@ func (a *App) wrap(args []string) error {
 	}
 }
 
+// wrapInstalled reports whether the shim exists on disk.
+func (a *App) wrapInstalled() bool {
+	_, err := os.Stat(a.shimPath())
+	return err == nil
+}
+
 func (a *App) wrapInstall() error {
 	if err := os.MkdirAll(a.shimDir(), 0o755); err != nil {
 		return err
@@ -77,6 +83,16 @@ func (a *App) wrapInstall() error {
 			continue
 		}
 		a.printf("%s Prepended it to PATH for %s %s\n", a.Style.green("✓"), sh.Name(), a.Style.dim("("+displayPath(file)+")"))
+		// Older versions guarded plain `claude` with an alias in the managed
+		// block. It only ever covered interactive shells and would now shadow
+		// the wrapper there, so it is retired once the wrapper takes over.
+		if has, _ := shell.HasLine(file, sh.GuardKey()); has {
+			if err := shell.RemoveLine(file, sh.GuardKey()); err != nil {
+				fmt.Fprintf(a.Stderr, "Warning: could not remove the old 'claude' guard alias from %s: %v\n", file, err)
+			} else {
+				a.printf("%s Retired the old 'claude' guard alias in %s %s\n", a.Style.green("✓"), sh.Name(), a.Style.dim("(the wrapper replaces it)"))
+			}
+		}
 	}
 
 	a.printf("\nOpen a new terminal, then verify with: %s\n", a.Style.bold("claude-profile wrap status"))
@@ -104,6 +120,10 @@ func (a *App) wrapStatus() error {
 	shim := a.shimPath()
 	if _, err := os.Stat(shim); err != nil {
 		a.printf("Wrapper:     %s %s\n", "not installed", st.dim("(install with: claude-profile wrap install)"))
+		if a.guardAliasPresent() {
+			a.printf("%s plain 'claude' is guarded only by a shell alias — git hooks, IDEs and scripts\n", st.yellow("Warning:"))
+			a.printf("         bypass it and land in the default profile; run 'claude-profile wrap install'.\n")
+		}
 		return nil
 	}
 	a.printf("Wrapper:     %s %s\n", st.green("installed"), st.dim("("+displayPath(shim)+")"))
@@ -132,6 +152,21 @@ func (a *App) wrapStatus() error {
 	}
 	a.printf("Forwards to: %s\n", displayPath(realPath))
 	return nil
+}
+
+// guardAliasPresent reports whether any managed rc file still carries the
+// alias-based guard from older versions.
+func (a *App) guardAliasPresent() bool {
+	for _, sh := range shell.Detect() {
+		file, err := sh.StartupFile()
+		if err != nil {
+			continue
+		}
+		if has, _ := shell.HasLine(file, sh.GuardKey()); has {
+			return true
+		}
+	}
+	return false
 }
 
 // wrapExec is the hidden command the shim invokes in place of claude.

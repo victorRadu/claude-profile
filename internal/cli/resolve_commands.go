@@ -91,6 +91,10 @@ func (a *App) status() error {
 	}
 	st := a.Style
 	a.printf("%s  %s\n", st.bold("Profile root: "), displayPath(a.Store.Root))
+	if !a.wrapInstalled() && a.guardAliasPresent() {
+		a.printf("%s plain 'claude' is guarded only by a shell alias — git hooks, IDEs and scripts\n", st.yellow("Warning:"))
+		a.printf("         bypass it and land in the default profile; run 'claude-profile wrap install'.\n")
+	}
 	res, ok, err := profile.Resolve(dir)
 	if err != nil {
 		return err

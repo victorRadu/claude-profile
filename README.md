@@ -56,7 +56,7 @@ claude-profile never keeps a hidden "active profile" and never falls back to a s
 ◆ profile: client-acme (~/.claude-profiles/client-acme) — via .claude-profile in ~/work/acme
 ```
 
-That matters most when accounts are involved: billing a client's project to your personal plan — or leaking a personal experiment into a client's workspace — is exactly the mistake this design makes impossible to miss. If you let claude-profile guard the plain `claude` command (offered during `create`), even typing `claude` out of habit can never silently land in the wrong account — it uses the current folder's binding or asks you to pick.
+That matters most when accounts are involved: billing a client's project to your personal plan — or leaking a personal experiment into a client's workspace — is exactly the mistake this design makes impossible to miss. If you let claude-profile wrap the plain `claude` command (offered during `create`, or `claude-profile wrap install` any time), even typing `claude` out of habit can never silently land in the wrong account — it uses the current folder's binding or asks you to pick. The wrapper is a real executable ahead of `claude` in PATH, not a shell alias, so the same resolution applies where aliases never reach: git hooks, IDE integrations and scripts that call `claude` inside a bound folder.
 
 The reminder doesn't stop at launch. Every new profile also gets a Claude Code status line showing the profile and the current model for the whole session:
 
@@ -75,7 +75,7 @@ cd ~/work/acme
 claude-profile link client-acme
 ```
 
-From now on, `claude-profile run` (or a guarded plain `claude`) anywhere inside that folder uses the client's account — announced in the banner every time. The binding is a plain-text `.claude-profile` file you can read, delete, or commit to git so your whole team gets the same profile name.
+From now on, `claude-profile run` (or a wrapped plain `claude`) anywhere inside that folder uses the client's account — announced in the banner every time. The binding is a plain-text `.claude-profile` file you can read, delete, or commit to git so your whole team gets the same profile name.
 
 Not sure where you are? Ask:
 
@@ -134,13 +134,15 @@ description: Get a cold review of the current diff from the review profile, fix 
 
 Allow that one command in the coder's `settings.json` so the skill never prompts: `"allow": ["Bash(claude-profile run review:*)"]`. From then on, `/review` in a `claude-coder` session hands the diff to a process with its own login, its own `CLAUDE.md`, its own skills and no write tools. The only things that cross between the two are the diff and the findings — the banner goes to stderr, so the reviewer's verdict comes back on a clean stdout.
 
-## Optional: wrap the `claude` command everywhere
+## Wrap the `claude` command everywhere
 
-The guard alias works in your interactive shell. If you want profile resolution to also apply where aliases don't reach — IDE terminals, for example — you can install a real wrapper:
+`create` offers to install the wrapper; you can also install it at any time:
 
 ```sh
 claude-profile wrap install
 ```
+
+Without it, the `claude-<name>` aliases still work, but plain `claude` is the stock binary and the default profile — and so is every `claude` call made by a git hook, an IDE integration or a script, even inside a bound folder. (Older versions guarded plain `claude` with a shell alias, which had exactly that blind spot; `wrap install` retires that alias, and `claude-profile status` warns while only the alias is in place.)
 
 This puts a tiny `claude` shim ahead of the real binary in PATH, with a strict contract:
 
@@ -150,7 +152,7 @@ This puts a tiny `claude` shim ahead of the real binary in PATH, with a strict c
 | Unbound + interactive terminal | The profile picker |
 | Unbound + script / IDE / CI | The **real claude, completely untouched** |
 
-The last row is the compatibility guarantee: anything invoking `claude` programmatically in an unbound folder gets byte-identical stock behavior. `claude-profile wrap status` shows whether the wrapper is active and which real binary it forwards to; `claude-profile wrap uninstall` removes it cleanly. This is entirely optional — nothing installs it by default.
+The last row is the compatibility guarantee: anything invoking `claude` programmatically in an unbound folder gets byte-identical stock behavior. `claude-profile wrap status` shows whether the wrapper is active and which real binary it forwards to; `claude-profile wrap uninstall` removes it cleanly. `claude-profile run <name>` and the `claude-<name>` aliases always launch the real binary directly, so the wrapper never second-guesses a profile you chose explicitly.
 
 ## Commands
 

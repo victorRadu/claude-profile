@@ -77,7 +77,7 @@ var helpTopics = map[string]cmdHelp{
 		summary: "Bind the current directory to a profile",
 		usage:   "claude-profile link <name>",
 		details: "Writes a .claude-profile file into the current directory, so 'run'\n" +
-			"without a name (and a guarded plain 'claude') here — and in any\n" +
+			"without a name (and a wrapped plain 'claude') here — and in any\n" +
 			"subdirectory — uses this profile. The file is plain text; review it,\n" +
 			"commit it to git, or delete it at any time.",
 		examples: []string{
@@ -148,8 +148,9 @@ var helpTopics = map[string]cmdHelp{
 			"Scripts, IDEs and CI in unbound folders therefore always get stock\n" +
 			"claude behavior. 'wrap status' shows whether the wrapper is active\n" +
 			"and which real binary it forwards to; 'wrap uninstall' removes it\n" +
-			"cleanly. This is optional — the aliases installed by 'create' cover\n" +
-			"interactive shells without wrapping anything.",
+			"cleanly. 'create' offers to install it; without it, plain 'claude'\n" +
+			"is only ever profile-aware in your interactive shell, and git hooks,\n" +
+			"IDEs and scripts land in the default profile.",
 		examples: []string{
 			"claude-profile wrap install",
 			"claude-profile wrap status",
