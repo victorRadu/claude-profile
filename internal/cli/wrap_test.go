@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/victorRadu/claude-profile/internal/profile"
+	"github.com/victorRadu/claude-profile/internal/shell"
 )
 
 // launchedAt records calls to the LaunchAt hook.
@@ -297,5 +298,154 @@ func TestWrapExecBannerMentionsProfile(t *testing.T) {
 	app.Run([]string{"wrap-exec"})
 	if !strings.Contains(errBuf.String(), profile.MarkerName) {
 		t.Fatalf("banner must say the marker resolved the profile:\n%s", errBuf)
+	}
+}
+
+// With the wrapper installed, the shim directory is first in PATH. A launch
+// that already resolved its profile (run <name>, claude-<name> aliases, the
+// picker) must still exec the real binary: going through the shim would
+// re-resolve the profile from the folder binding and override the one the
+// user asked for.
+func TestRunNamedProfileBypassesShim(t *testing.T) {
+	app, _, errBuf, _ := newTestApp(t, "")
+	realPath := fakeClaude(t)
+	l := hookLaunchAt(app)
+	app.Launch = app.launchClaude
+	app.WorkDir = t.TempDir()
+	app.Run([]string{"create", "go", "--no-alias"})
+	app.Run([]string{"create", "devops", "--no-alias"})
+	app.Run([]string{"link", "go"}) // the folder is bound to a different profile
+
+	if code := app.Run([]string{"wrap", "install"}); code != 0 {
+		t.Fatalf("wrap install failed: %s", errBuf)
+	}
+	t.Setenv("PATH", app.shimDir()+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	errBuf.Reset()
+	if code := app.Run([]string{"run", "devops", "--continue"}); code != 0 {
+		t.Fatalf("run failed: %s", errBuf)
+	}
+	if !l.called || l.path != realPath {
+		t.Fatalf("launched %q, want the real claude %q (never the shim)", l.path, realPath)
+	}
+	if l.configDir != app.Store.Dir("devops") {
+		t.Fatalf("configDir = %q, want the explicitly chosen devops profile", l.configDir)
+	}
+	if len(l.args) != 1 || l.args[0] != "--continue" {
+		t.Fatalf("args = %v, want [--continue]", l.args)
+	}
+}
+
+func TestLaunchClaudeWithoutClaudeFails(t *testing.T) {
+	app, _, errBuf, _ := newTestApp(t, "")
+	app.Launch = app.launchClaude
+	t.Setenv("PATH", t.TempDir())
+	app.Run([]string{"create", "go", "--no-alias"})
+	if code := app.Run([]string{"run", "go"}); code == 0 {
+		t.Fatal("run must fail when no claude is in PATH")
+	}
+	if !strings.Contains(errBuf.String(), "claude not found in PATH") {
+		t.Fatalf("expected a clear error, got:\n%s", errBuf)
+	}
+}
+
+// create's guard offer installs the wrapper, not an alias: an alias only
+// exists in interactive shells, so git hooks, IDEs and scripts would still
+// land silently in the default profile.
+func TestCreateGuardOfferInstallsWrapper(t *testing.T) {
+	app, out, _, _ := newTestApp(t, "y\n") // accept the guard (no copy menu: no other profiles)
+	app.Interactive = true
+	rc := os.Getenv("CLAUDE_PROFILE_RC")
+
+	if code := app.Run([]string{"create", "work"}); code != 0 {
+		t.Fatalf("create failed: %s", out)
+	}
+	if !app.wrapInstalled() {
+		t.Fatalf("accepting the guard must install the wrapper:\n%s", out)
+	}
+	content := readFile(t, rc)
+	if !strings.Contains(content, app.shimDir()) {
+		t.Fatalf("rc missing the wrapper PATH line:\n%s", content)
+	}
+	if strings.Contains(content, "alias claude=") {
+		t.Fatalf("the guard must not be an alias any more:\n%s", content)
+	}
+}
+
+func TestCreateGuardOfferDeclined(t *testing.T) {
+	app, out, _, _ := newTestApp(t, "n\n")
+	app.Interactive = true
+	if code := app.Run([]string{"create", "work"}); code != 0 {
+		t.Fatalf("create failed: %s", out)
+	}
+	if app.wrapInstalled() {
+		t.Fatal("declining the guard must not install the wrapper")
+	}
+}
+
+func TestCreateGuardNotOfferedTwice(t *testing.T) {
+	app, out, _, _ := newTestApp(t, "y\n")
+	app.Interactive = true
+	if code := app.Run([]string{"wrap", "install"}); code != 0 {
+		t.Fatal("wrap install failed")
+	}
+	out.Reset()
+	app.Stdin = strings.NewReader("") // no copy menu and no guard question follow
+	if code := app.Run([]string{"create", "work"}); code != 0 {
+		t.Fatalf("create failed: %s", out)
+	}
+	if strings.Contains(out.String(), "profile-aware everywhere") {
+		t.Fatalf("guard must not be offered when the wrapper is installed:\n%s", out)
+	}
+}
+
+// Upgrading from the alias guard: installing the wrapper retires the alias
+// (it would shadow the wrapper in interactive shells), and status warns
+// while only the alias is in place.
+func TestWrapInstallRetiresGuardAlias(t *testing.T) {
+	app, out, _, _ := newTestApp(t, "")
+	rc := os.Getenv("CLAUDE_PROFILE_RC")
+	shells := shell.Detect()
+	if err := shell.SetLine(rc, shells[0].GuardKey(), shells[0].GuardLine(app.Exe)); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(readFile(t, rc), "alias claude=") {
+		t.Fatal("precondition: alias guard not written")
+	}
+
+	if code := app.Run([]string{"status"}); code != 0 {
+		t.Fatalf("status failed: %s", out)
+	}
+	if !strings.Contains(out.String(), "guarded only by a shell alias") {
+		t.Fatalf("status must warn about the alias-only guard:\n%s", out)
+	}
+	out.Reset()
+	if code := app.Run([]string{"wrap", "status"}); code != 0 {
+		t.Fatal("wrap status failed")
+	}
+	if !strings.Contains(out.String(), "guarded only by a shell alias") {
+		t.Fatalf("wrap status must warn about the alias-only guard:\n%s", out)
+	}
+
+	out.Reset()
+	if code := app.Run([]string{"wrap", "install"}); code != 0 {
+		t.Fatalf("wrap install failed: %s", out)
+	}
+	content := readFile(t, rc)
+	if strings.Contains(content, "alias claude=") {
+		t.Fatalf("alias guard must be retired by wrap install:\n%s", content)
+	}
+	if !strings.Contains(content, app.shimDir()) {
+		t.Fatalf("PATH line missing:\n%s", content)
+	}
+	if !strings.Contains(out.String(), "Retired the old 'claude' guard alias") {
+		t.Fatalf("retirement must be announced:\n%s", out)
+	}
+	out.Reset()
+	if code := app.Run([]string{"status"}); code != 0 {
+		t.Fatal("status failed")
+	}
+	if strings.Contains(out.String(), "guarded only by a shell alias") {
+		t.Fatalf("warning must go away once the wrapper is installed:\n%s", out)
 	}
 }

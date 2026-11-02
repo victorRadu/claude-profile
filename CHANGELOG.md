@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The "guard plain `claude`" offer in `create` installed a shell alias, which only exists in interactive shells: git hooks, IDE integrations and scripts calling `claude` inside a bound folder still landed silently in the default profile. The offer now installs the PATH wrapper (`wrap install`), `wrap install` retires an existing guard alias, and `status` / `wrap status` warn while only the alias is in place.
+- With the wrapper installed, `claude-profile run <name>` and the `claude-<name>` aliases launched `claude` through PATH — the wrapper — which re-resolved the profile from the folder binding instead of the one asked for. Launches now always target the real binary.
+
 ### Added
 
 - `statusline` command: every profile's Claude Code status line shows the active profile and current model (`acme · Opus 4.8`). Installed automatically by `create`; an existing status line from another tool is chained after it, never overwritten, and restored exactly by `statusline uninstall`.

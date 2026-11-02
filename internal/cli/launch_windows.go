@@ -4,21 +4,11 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 
 	"github.com/victorRadu/claude-profile/internal/profile"
 )
-
-// launchClaude finds claude in PATH and runs it.
-func launchClaude(configDir string, args []string) error {
-	path, err := exec.LookPath("claude")
-	if err != nil {
-		return fmt.Errorf("claude not found in PATH — install Claude Code first (https://docs.claude.com/en/docs/claude-code)")
-	}
-	return launchClaudeAt(path, configDir, args)
-}
 
 // launchClaudeAt runs the claude binary at path as a child process.
 // Windows has no exec(2), so we spawn and mirror the exit code. An empty

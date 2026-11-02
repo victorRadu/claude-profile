@@ -58,11 +58,11 @@ func Run(args []string, version string) int {
 		Stderr:      os.Stderr,
 		Version:     version,
 		Exe:         exe,
-		Launch:      launchClaude,
 		LaunchAt:    launchClaudeAt,
 		Interactive: isTerminal(os.Stdin),
 		Style:       newPalette(os.Stdout),
 	}
+	app.Launch = app.launchClaude
 	return app.Run(args)
 }
 
