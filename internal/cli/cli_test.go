@@ -20,6 +20,11 @@ func newTestApp(t *testing.T, stdin string) (*App, *bytes.Buffer, *bytes.Buffer,
 	t.Helper()
 	rc := filepath.Join(t.TempDir(), "rc")
 	t.Setenv("CLAUDE_PROFILE_RC", rc)
+	// Isolate the home folder so the real ~/.claude never changes what a
+	// test sees (for example, the copy menu appears only when it exists).
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	var out, errBuf bytes.Buffer
 	l := &launched{}

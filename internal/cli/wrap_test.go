@@ -353,7 +353,7 @@ func TestLaunchClaudeWithoutClaudeFails(t *testing.T) {
 // exists in interactive shells, so git hooks, IDEs and scripts would still
 // land silently in the default profile.
 func TestCreateGuardOfferInstallsWrapper(t *testing.T) {
-	app, out, _, _ := newTestApp(t, "\ny\n") // cancel the copy menu, accept the guard
+	app, out, _, _ := newTestApp(t, "y\n") // accept the guard (no copy menu: no other profiles)
 	app.Interactive = true
 	rc := os.Getenv("CLAUDE_PROFILE_RC")
 
@@ -373,7 +373,7 @@ func TestCreateGuardOfferInstallsWrapper(t *testing.T) {
 }
 
 func TestCreateGuardOfferDeclined(t *testing.T) {
-	app, out, _, _ := newTestApp(t, "\nn\n")
+	app, out, _, _ := newTestApp(t, "n\n")
 	app.Interactive = true
 	if code := app.Run([]string{"create", "work"}); code != 0 {
 		t.Fatalf("create failed: %s", out)
@@ -390,7 +390,7 @@ func TestCreateGuardNotOfferedTwice(t *testing.T) {
 		t.Fatal("wrap install failed")
 	}
 	out.Reset()
-	app.Stdin = strings.NewReader("\n") // cancel the copy menu; no guard question follows
+	app.Stdin = strings.NewReader("") // no copy menu and no guard question follow
 	if code := app.Run([]string{"create", "work"}); code != 0 {
 		t.Fatalf("create failed: %s", out)
 	}
